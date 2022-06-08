@@ -167,6 +167,21 @@ An interface is two fields:
 If you want interface methods to modify the underlying data, you must use a
 pointer.
 
+아래는 인터페이스 예시 (인터페이스 설명 [[link](https://edu.goorm.io/learn/lecture/2010/%ED%95%9C-%EB%88%88%EC%97%90-%EB%81%9D%EB%82%B4%EB%8A%94-%EA%B3%A0%EB%9E%AD-%EA%B8%B0%EC%B4%88/lesson/226534/%EB%A9%94%EC%86%8C%EB%93%9C%EC%9D%98-%EC%A7%91%ED%95%A9-%EC%9D%B8%ED%84%B0%ED%8E%98%EC%9D%B4%EC%8A%A4)])
+
+```go
+type Animal interface {
+	run()
+}
+
+type Dog struct {
+}
+
+func (d Dog) run()  {
+	println("run")
+}
+```
+
 ### Verify Interface Compliance
 
 Verify interface compliance at compile time where appropriate. This includes:
@@ -213,6 +228,7 @@ func (h *Handler) ServeHTTP(
   // ...
 }
 ```
+Handler가 http.Handler 인터페이스와 매치가 되는지 컴파일
 
 </td></tr>
 </tbody></table>
@@ -566,6 +582,42 @@ must be subject to a high level of scrutiny. Consider how the size is
 determined, what prevents the channel from filling up under load and blocking
 writers, and what happens when this occurs.
 
+**channel size**
+
+0: sender는 receiver가 값을 읽을 때까지 기다린다.
+
+1: sender는 receiver가 값을 받았다고 가정하고 행동한다. 즉, concurrency를 허용한다.
+
+n: 버퍼
+
+**채널**
+
+```go
+package main
+
+import (
+	"fmt"
+)
+
+func main() {
+	done := make(chan bool, 1)
+
+	go func() {
+		for i := 0; i < 6; i++ {
+			done <- true
+
+			fmt.Println("고루틴 : ", i)
+		}
+	}()
+
+	for i := 0; i < 6; i++ {
+		<-done
+
+		fmt.Println("메인 함수 : ", i)
+	}
+}
+```
+
 <table>
 <thead><tr><th>Bad</th><th>Good</th></tr></thead>
 <tbody>
@@ -587,6 +639,8 @@ c := make(chan int)
 
 </td></tr>
 </tbody></table>
+
+
 
 ### Start Enums at One
 
@@ -661,6 +715,8 @@ Therefore, always use the [`"time"`] package when dealing with time because it
 helps deal with these incorrect assumptions in a safer, more accurate manner.
 
   [`"time"`]: https://golang.org/pkg/time/
+
+int type 으로 의미상 ‘초’ 에 해당하는 값을 받지 말고, param 자체를 time.Time 혹은 time.Duration 으로 직접 받으라는 의미이다.
 
 #### Use `time.Time` for instants of time
 
@@ -817,37 +873,24 @@ seconds that may have occurred between those two instants.
 ### Errors
 
 #### Error Types
+에러를 선언하는데 있어서 다양한 옵션들이 존재한다:
 
-There are few options for declaring errors.
-Consider the following before picking the option best suited for your use case.
+- [`errors.New`] 간단한 정적 문자열(simple static strings)과 함께하는 에러
+- [`fmt.Errorf`] 형식화된 오류 문자열
+- `Error()` 메서드를 구현한 커스텀 타입 (Custom types)
 
-- Does the caller need to match the error so that they can handle it?
-  If yes, we must support the [`errors.Is`] or [`errors.As`] functions
-  by declaring a top-level error variable or a custom type.
-- Is the error message a static string,
-  or is it a dynamic string that requires contextual information?
-  For the former, we can use [`errors.New`], but for the latter we must
-  use [`fmt.Errorf`] or a custom error type.
-- Are we propagating a new error returned by a downstream function?
-  If so, see the [section on error wrapping](#error-wrapping).
+오류를 반환할 때, 가장 좋은 선택을 하기 위해서 아래의 사항을 고려하라:
 
-[`errors.Is`]: https://golang.org/pkg/errors/#Is
-[`errors.As`]: https://golang.org/pkg/errors/#As
+- 추가 정보가 필요없는 간단한 에러인가? 그렇다면, [`errors.New`]가 충분하다.
+- 클라이언트가 오류를 감지하고 처리(handle)해야 하는가? 그렇다면, 커스텀 타입을 사용해야 하고 `Error()` 메서드를 구현해야 한다.
+- 다운스트림 함수(downstream function)에 의해 반환된 에러를 전파(propagating)하고 있는가? 그렇다면, [오류 포장(Error Wrapping)](#%ec%98%a4%eb%a5%98-%eb%9e%98%ed%95%91error-wrapping)을 참고하라.
+- 이외의 경우, [`fmt.Errorf`] 로 충분하다.
 
-| Error matching? | Error Message | Guidance                            |
-|-----------------|---------------|-------------------------------------|
-| No              | static        | [`errors.New`]                      |
-| No              | dynamic       | [`fmt.Errorf`]                      |
-| Yes             | static        | top-level `var` with [`errors.New`] |
-| Yes             | dynamic       | custom `error` type                 |
+  [`errors.New`]: https://golang.org/pkg/errors/#New
+  [`fmt.Errorf`]: https://golang.org/pkg/fmt/#Errorf
+  [`"pkg/errors".Wrap`]: https://godoc.org/github.com/pkg/errors#Wrap
 
-[`errors.New`]: https://golang.org/pkg/errors/#New
-[`fmt.Errorf`]: https://golang.org/pkg/fmt/#Errorf
-
-For example,
-use [`errors.New`] for an error with a static string.
-Export this error as a variable to support matching it with `errors.Is`
-if the caller needs to match and handle this error.
+만약 클라이언트가 오류를 감지해야 하고, 여러분들이 [`errors.New`]을 사용하여 간단한 에러를 생성한 경우, `var`에 에러를 사용해라.
 
 <table>
 <thead><tr><th>No error matching</th><th>Error matching</th></tr></thead>
@@ -894,9 +937,7 @@ if err := foo.Open(); err != nil {
 </td></tr>
 </tbody></table>
 
-For an error with a dynamic string,
-use [`fmt.Errorf`] if the caller does not need to match it,
-and a custom `error` if the caller does need to match it.
+만약 클라이언트가 감지해야 할 오류가 있고 여러분들이 이를 추가하려고 하는 경우, 그것에 대한 자세한 정보를 추가하고 싶을 것이다. (예를들어, 정적 문자열이 아닌 경우), 이러할 경우, 여러분들은 커스텀 타입을 사용해야 한다.
 
 <table>
 <thead><tr><th>No error matching</th><th>Error matching</th></tr></thead>
@@ -956,38 +997,15 @@ they will become part of the public API of the package.
 
 #### Error Wrapping
 
-There are three main options for propagating errors if a call fails:
+호출이 실패할 경우 에러를 전파(propagating)하기 위한 주요 옵션이 있다:
 
-- return the original error as-is
-- add context with `fmt.Errorf` and the `%w` verb
-- add context with `fmt.Errorf` and the `%v` verb
+- 추가적인 컨텍스트(additional context)가 없고 원래의 에러 타입을 유지하려는 경우 본래의 에러(original error)를 반환.
+- 호출자(callers)가 특정한 에러 케이스를(specific error case)를 감지하거나 다룰(handle) 필요가 없는 경우 fmt.Errorf를 사용.
 
-Return the original error as-is if there is no additional context to add.
-This maintains the original error type and message.
-This is well suited for cases when the underlying error message
-has sufficient information to track down where it came from.
 
-Otherwise, add context to the error message where possible
-so that instead of a vague error such as "connection refused",
-you get more useful errors such as "call service foo: connection refused".
+"connection refused"와 같은 모호한 오류보다, 컨텍스트를 추가하는 것을 추천한다. 따라서 여러분들은 "call service foo: connection refused."와 같이 더욱 유용한 에러를 얻을 수 있을 것이다.
 
-Use `fmt.Errorf` to add context to your errors,
-picking between the `%w` or `%v` verbs
-based on whether the caller should be able to
-match and extract the underlying cause.
-
-- Use `%w` if the caller should have access to the underlying error.
-  This is a good default for most wrapped errors,
-  but be aware that callers may begin to rely on this behavior.
-  So for cases where the wrapped error is a known `var` or type,
-  document and test it as part of your function's contract.
-- Use `%v` to obfuscate the underlying error.
-  Callers will be unable to match it,
-  but you can switch to `%w` in the future if needed.
-
-When adding context to returned errors, keep the context succinct by avoiding
-phrases like "failed to", which state the obvious and pile up as the error
-percolates up through the stack:
+반환된 오류에서 컨텍스트를 추가 할 때, "failed to"와 같은 사족의 명백한 문구를 피하며 컨텍스트를 간결하게 유지하도록 해라. 이러한 문구들이 에러가 스택에 퍼지면서/스며들면서(percolates) 계속해서 쌓이게 된다:
 
 <table>
 <thead><tr><th>Bad</th><th>Good</th></tr></thead>
