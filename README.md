@@ -94,12 +94,8 @@ row before the </tbody></table> line.
       - [Omit Zero Value Fields in Structs](#omit-zero-value-fields-in-structs)
       - [Use `var` for Zero Value Structs](#use-var-for-zero-value-structs)
       - [Initializing Struct References](#initializing-struct-references)
-  - [Initializing Maps](#initializing-maps)
-  - [Format Strings outside Printf](#format-strings-outside-printf)
-  - [Naming Printf-style Functions](#naming-printf-style-functions)
 - [Patterns](#patterns)
   - [Test Tables](#test-tables)
-  - [Functional Options](#functional-options)
 - [Linting](#linting)
 
 ## Introduction
@@ -2637,7 +2633,6 @@ iteration because of the use of `t.Parallel()` below.
 If we do not do that, most or all tests will receive an unexpected value for
 `tt`, or a value that changes as they're running.
 
-### Functional Options
 
 Functional options is a pattern in which you declare an opaque `Option` type
 that records information in some internal struct. You accept a variadic number
